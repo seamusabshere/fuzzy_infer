@@ -15,9 +15,9 @@ module FuzzyInfer
       @started = true
       execute %{CREATE TABLE #{tmp_table} LIKE #{quoted_table_name}}
       execute %{INSERT INTO #{tmp_table} SELECT * FROM #{quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
-      execute %{ALTER TABLE #{tmp_table} ADD COLUMN fuzzy_weighted_value FLOAT default null}
-      execute %{ALTER TABLE #{tmp_table} ADD COLUMN fuzzy_membership FLOAT default null}
       execute %{ALTER TABLE #{tmp_table} #{weight_create_columns_sql}}
+      execute %{ALTER TABLE #{tmp_table} ADD COLUMN fuzzy_membership FLOAT default null}
+      execute %{ALTER TABLE #{tmp_table} ADD COLUMN fuzzy_weighted_value FLOAT default null}
       execute %{UPDATE #{tmp_table} SET #{weight_calculate_sql}}
       weight_normalize_frags.each do |sql|
         execute sql
