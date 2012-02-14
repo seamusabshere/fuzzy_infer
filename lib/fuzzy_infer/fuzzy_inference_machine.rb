@@ -78,7 +78,7 @@ module FuzzyInfer
     end
     
     def tmp_table
-      @tmp_table ||= "fuzzy_infer_#{Kernel.rand(1e11)}"
+      @tmp_table ||= "fuzzy_infer_#{Time.now.strftime('%Y_%m_%d_%H_%M_%S')}" #Kernel.rand(1e11)
     end
     
     def weight_create_columns_sql
