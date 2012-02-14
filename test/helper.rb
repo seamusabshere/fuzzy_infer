@@ -45,7 +45,6 @@ MiniTest::Unit.runner.reporters << MiniTest::Reporters::SpecReporter.new
 $LOAD_PATH.unshift(File.dirname(__FILE__))
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 require 'fuzzy_infer'
-require 'ruby-debug'
 # class MiniTest::Spec
 # end
 

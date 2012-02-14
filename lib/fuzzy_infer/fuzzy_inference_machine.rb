@@ -12,19 +12,14 @@ module FuzzyInfer
     end
     
     def infer
-      @started = true
-      execute %{CREATE TABLE #{tmp_table} LIKE #{quoted_table_name}}
-      execute %{INSERT INTO #{tmp_table} SELECT * FROM #{quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
-      execute %{ALTER TABLE #{tmp_table} #{weight_create_columns_sql}}
-      execute %{ALTER TABLE #{tmp_table} ADD COLUMN fuzzy_membership FLOAT default null}
-      execute %{ALTER TABLE #{tmp_table} ADD COLUMN fuzzy_weighted_value FLOAT default null}
-      execute %{UPDATE #{tmp_table} SET #{weight_calculate_sql}}
-      weight_normalize_frags.each do |sql|
-        execute sql
-      end
-      execute %{UPDATE #{tmp_table} SET fuzzy_membership = #{membership_sql}}
-      execute %{UPDATE #{tmp_table} SET fuzzy_weighted_value = fuzzy_membership * #{quote_column_name(target)}}
-      select_value %{SELECT SUM(fuzzy_weighted_value)/SUM(fuzzy_membership) FROM #{tmp_table}}
+      calculate_table!
+      select_value %{SELECT SUM(fuzzy_weighted_value)/SUM(fuzzy_membership) FROM #{table_name}}      
+    end
+    
+    # TODO technically I could use this to generate the SQL
+    def arel_table
+      calculate_table!
+      Arel::Table.new table_name
     end
     
     def basis
@@ -33,7 +28,7 @@ module FuzzyInfer
     
     def sigma
       @sigma ||= basis.inject({}) do |memo, (k, v)|
-        memo[k] = select_value %{SELECT #{sigma_sql(k, v)} FROM #{quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
+        memo[k] = select_value %{SELECT #{sigma_sql(k, v)} FROM #{active_record_class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
         memo
       end
     end
@@ -49,6 +44,23 @@ module FuzzyInfer
     
     private
     
+    def calculate_table!
+      return if @table_calculated == true
+      @table_calculated = true
+      execute %{CREATE TABLE #{table_name} LIKE #{active_record_class.quoted_table_name}}
+      execute %{INSERT INTO #{table_name} SELECT * FROM #{active_record_class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
+      execute %{ALTER TABLE #{table_name} #{weight_create_columns_sql}}
+      execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_membership FLOAT default null}
+      execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_weighted_value FLOAT default null}
+      execute %{UPDATE #{table_name} SET #{weight_calculate_sql}}
+      weight_normalize_frags.each do |sql|
+        execute sql
+      end
+      execute %{UPDATE #{table_name} SET fuzzy_membership = #{membership_sql}}
+      execute %{UPDATE #{table_name} SET fuzzy_weighted_value = fuzzy_membership * #{quote_column_name(target)}}
+      nil
+    end
+    
     def membership_sql
       if config.weight
         "(#{membership}) * #{quote_column_name(config.weight.to_s)}"
@@ -59,11 +71,10 @@ module FuzzyInfer
     
     def weight_normalize_frags
       basis.keys.map do |k|
-        "UPDATE #{tmp_table} AS dest_t, (SELECT MAX(#{quote_column_name("#{k}_w")}) AS m FROM #{tmp_table}) AS src_t SET dest_t.#{quote_column_name("#{k}_n_w")} = #{quote_column_name("#{k}_w")} / src_t.m"
+        "UPDATE #{table_name} AS dest_t, (SELECT MAX(#{quote_column_name("#{k}_w")}) AS m FROM #{table_name}) AS src_t SET dest_t.#{quote_column_name("#{k}_n_w")} = #{quote_column_name("#{k}_w")} / src_t.m"
       end
     end
     
-    # 1/(sigma*SQRT(2*pi)) *EXP(-((xi -mu)^2)/(2*sigma^2))
     def weight_calculate_sql
       basis.keys.map do |k|
         "#{quote_column_name("#{k}_w")} = 1.0 / (#{sigma[k]}*SQRT(2*PI())) * EXP(-(POW(#{quote_column_name(k)} - #{basis[k]},2))/(2*POW(#{sigma[k]},2)))"
@@ -77,13 +88,13 @@ module FuzzyInfer
       sql
     end
     
-    def tmp_table
-      @tmp_table ||= "fuzzy_infer_#{Time.now.strftime('%Y_%m_%d_%H_%M_%S')}" #Kernel.rand(1e11)
+    def table_name
+      @table_name ||= "fuzzy_infer_#{Time.now.strftime('%Y_%m_%d_%H_%M_%S')}_#{Kernel.rand(1e11)}"
     end
     
     def weight_create_columns_sql
       basis.keys.inject([]) do |memo, k|
-        memo << "ADD COLUMN #{quote_column_name("#{k}_w")} FLOAT default null" # AFTER #{quote_column_name(k)}
+        memo << "ADD COLUMN #{quote_column_name("#{k}_w")} FLOAT default null"
         memo << "ADD COLUMN #{quote_column_name("#{k}_n_w")} FLOAT default null"
         memo
       end.flatten.join ', '
@@ -91,13 +102,12 @@ module FuzzyInfer
     
     def basis_not_null_sql
       basis.keys.map do |basis|
-        "#{quoted_table_name}.#{quote_column_name(basis)} IS NOT NULL"
+        "#{quote_column_name(basis)} IS NOT NULL"
       end.join ' AND '
     end
     
-    # not config.target (the list of all possible targets), just this machine's target
     def target_not_null_sql
-      "#{quoted_table_name}.#{quote_column_name(target)} IS NOT NULL"
+      "#{quote_column_name(target)} IS NOT NULL"
     end
     
     def connection
@@ -108,7 +118,6 @@ module FuzzyInfer
       kernel.class
     end
     
-    delegate :quoted_table_name, :to => :active_record_class
     delegate :execute, :quote_column_name, :select_value, :to => :connection
   end
 end

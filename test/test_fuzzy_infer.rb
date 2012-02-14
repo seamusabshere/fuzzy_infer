@@ -34,7 +34,7 @@ describe FuzzyInfer do
     end
     describe "the temp table" do
       it "excludes rows from the original table where basis or target is nil, but includes rows where they are 0" do
-        ActiveRecord::Base.connection.select_value("SELECT count(*) FROM #{@e.send(:tmp_table)}").must_equal 192
+        ActiveRecord::Base.connection.select_value(@e.arel_table.project('COUNT(*)').to_sql).must_equal 192
       end
     end
     describe '#sigma' do
