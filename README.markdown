@@ -21,6 +21,12 @@
 
     rake
 
+## future plans
+
+**in the future the fuzzy inference machine will make TEMPORARY tables, rather than gum up your db**
+
+for now, it makes permanent tables so that you can examine them
+
 ## Copyright
 
 Copyright 2012 Brighter Planet, Inc.
