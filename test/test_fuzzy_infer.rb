@@ -20,32 +20,37 @@ describe FuzzyInfer do
       e.must_be_instance_of FuzzyInfer::FuzzyInferenceMachine
     end
   end
-  # CBECS.new(:heating_degree_days => 5000, :lodging_rooms => 20).fuzzy_infer(:electricity_per_room_night)
+  # CBECS.new(:heating_degree_days => 2778, :lodging_rooms => 20).fuzzy_infer(:electricity_per_room_night)
   
   describe FuzzyInfer::FuzzyInferenceMachine do
     before do
-      @kernel = CBECS.new(:heating_degree_days => 5000, :lodging_rooms => 20, :principal_activity => 'Partying')
+      @kernel = CBECS.new(:heating_degree_days => 2778, :lodging_rooms => 20, :principal_activity => 'Partying')
       @e = @kernel.fuzzy_inference_machine(:electricity_per_room_night)
     end
     describe '#basis' do
       it "is the union of the kernel's attributes with the basis" do
-        @e.basis.must_equal :heating_degree_days => 5000, :lodging_rooms => 20
+        @e.basis.must_equal :heating_degree_days => 2778, :lodging_rooms => 20
+      end
+    end
+    describe "the temp table" do
+      it "excludes rows from the original table where basis or target is nil, but includes rows where they are 0" do
+        ActiveRecord::Base.connection.select_value("SELECT count(*) FROM #{@e.send(:tmp_table)}").must_equal 192
       end
     end
     describe '#sigma' do
-      it "is calculated from the original table" do
-        @e.sigma[:heating_degree_days].must_be_close_to 1096.04463827229, 100
-        @e.sigma[:lodging_rooms].must_be_close_to 54.24961627, 10
+      it "is calculated from the original table, but only those rows that are also in the temp table" do
+        @e.sigma[:heating_degree_days].must_be_close_to 411.2, 0.1
+        @e.sigma[:lodging_rooms].must_be_close_to 55.0, 0.1
       end
     end
     describe '#membership' do
       it 'depends on the kernel' do
-        @e.membership.must_equal '(`heating_degree_days_n_w`^0.8) * (`lodging_rooms_n_w`^0.8)'
+        @e.membership.must_equal 'POW(`heating_degree_days_n_w`,0.8) * POW(`lodging_rooms_n_w`,0.8)'
       end
     end
     describe '#infer' do
       it 'guesses!' do
-        @e.infer.must_be_close_to 61, 10
+        @e.infer.must_be_close_to 18.35, 0.01
       end
     end
   end

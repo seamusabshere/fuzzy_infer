@@ -33,7 +33,7 @@ module FuzzyInfer
     
     def sigma
       @sigma ||= basis.inject({}) do |memo, (k, v)|
-        memo[k] = select_value %{SELECT #{sigma_sql(k, v)} FROM #{quoted_table_name}}
+        memo[k] = select_value %{SELECT #{sigma_sql(k, v)} FROM #{quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
         memo
       end
     end
@@ -66,7 +66,7 @@ module FuzzyInfer
     # 1/(sigma*SQRT(2*pi)) *EXP(-((xi -mu)^2)/(2*sigma^2))
     def weight_calculate_sql
       basis.keys.map do |k|
-        "#{quote_column_name("#{k}_w")} = 1.0 / (#{sigma[k]}*SQRT(2*PI())) * EXP(-((#{quote_column_name(k)} - #{basis[k]})^2)/(2*#{sigma[k]}^2))"
+        "#{quote_column_name("#{k}_w")} = 1.0 / (#{sigma[k]}*SQRT(2*PI())) * EXP(-(POW(#{quote_column_name(k)} - #{basis[k]},2))/(2*POW(#{sigma[k]},2)))"
       end.join(', ')
     end
     
@@ -91,13 +91,13 @@ module FuzzyInfer
     
     def basis_not_null_sql
       basis.keys.map do |basis|
-        "#{quoted_table_name}.#{quote_column_name(basis)} <> 0"
+        "#{quoted_table_name}.#{quote_column_name(basis)} IS NOT NULL"
       end.join ' AND '
     end
     
     # not config.target (the list of all possible targets), just this machine's target
     def target_not_null_sql
-      "#{quoted_table_name}.#{quote_column_name(target)} <> 0"
+      "#{quoted_table_name}.#{quote_column_name(target)} IS NOT NULL"
     end
     
     def connection
