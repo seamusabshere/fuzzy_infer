@@ -47,7 +47,7 @@ module FuzzyInfer
     def calculate_table!
       return if @table_calculated == true
       @table_calculated = true
-      execute %{CREATE TABLE #{table_name} LIKE #{active_record_class.quoted_table_name}}
+      execute %{CREATE TEMPORARY TABLE #{table_name} LIKE #{active_record_class.quoted_table_name}}
       execute %{INSERT INTO #{table_name} SELECT * FROM #{active_record_class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
       execute %{ALTER TABLE #{table_name} #{weight_create_columns_sql}}
       execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_membership FLOAT default null}
