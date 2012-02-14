@@ -4,8 +4,8 @@ require File.expand_path('../lib/fuzzy_infer/version', __FILE__)
 Gem::Specification.new do |gem|
   gem.authors       = ["Seamus Abshere"]
   gem.email         = ["seamus@abshere.net"]
-  gem.description   = %q{TODO: Write a gem description}
-  gem.summary       = %q{TODO: Write a gem summary}
+  gem.description   = %q{A description}
+  gem.summary       = %q{A summary}
   gem.homepage      = ""
 
   gem.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
