@@ -15,7 +15,7 @@
 
 3) load cbecs (just the first time - note that it is hardcoded to ONLY run cbecs data_miner)
 
-   RUN_DATA_MINER=true rake
+    RUN_DATA_MINER=true rake
 
 ## further testing
 
