@@ -27,14 +27,14 @@ ActiveRecord::Base.logger.level = Logger::DEBUG
 
 require 'earth'
 if ENV['RUN_DATA_MINER'] == 'true'
-  Earth.init :hospitality, :apply_schemas => true, :load_data_miner => true
+  Earth.init :hospitality, :load_data_miner => true
   ActiveRecord::Base.logger.level = Logger::INFO
   CommercialBuildingEnergyConsumptionSurveyResponse.run_data_miner!
   $stderr.puts "Done!"
   exit
 end
 
-Earth.init :hospitality, :apply_schemas => true
+Earth.init :hospitality
 
 require 'minitest/spec'
 require 'minitest/autorun'
