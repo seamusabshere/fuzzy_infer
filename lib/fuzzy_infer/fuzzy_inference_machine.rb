@@ -45,8 +45,7 @@ module FuzzyInfer
     private
     
     def calculate_table!
-      return if @table_calculated == true
-      @table_calculated = true
+      return if table_exists?(table_name)
       execute %{CREATE TEMPORARY TABLE #{table_name} LIKE #{active_record_class.quoted_table_name}}
       execute %{INSERT INTO #{table_name} SELECT * FROM #{active_record_class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
       execute %{ALTER TABLE #{table_name} #{weight_create_columns_sql}}
@@ -71,7 +70,8 @@ module FuzzyInfer
     
     def weight_normalize_frags
       basis.keys.map do |k|
-        "UPDATE #{table_name} AS dest_t, (SELECT MAX(#{quote_column_name("#{k}_w")}) AS m FROM #{table_name}) AS src_t SET dest_t.#{quote_column_name("#{k}_n_w")} = #{quote_column_name("#{k}_w")} / src_t.m"
+        max = select_value "SELECT MAX(#{quote_column_name("#{k}_w")}) FROM #{table_name}"
+        "UPDATE #{table_name} SET #{quote_column_name("#{k}_n_w")} = #{quote_column_name("#{k}_w")} / #{max}"
       end
     end
     
@@ -118,7 +118,7 @@ module FuzzyInfer
       kernel.class
     end
     
-    delegate :execute, :quote_column_name, :select_value, :to => :connection
+    delegate :execute, :quote_column_name, :select_value, :table_exists?, :to => :connection
   end
 end
 
