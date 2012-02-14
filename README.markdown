@@ -27,6 +27,13 @@
 
 for now, it makes permanent tables so that you can examine them
 
+wishlist:
+
+* re-use FIM for multiple targets
+* cache #fuzzy_infer
+* randomize names of all added columns
+* use arel to generate sql(?)
+
 ## Copyright
 
 Copyright 2012 Brighter Planet, Inc.
