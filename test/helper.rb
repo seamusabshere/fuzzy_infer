@@ -50,11 +50,13 @@ require 'fuzzy_infer'
 
 CBECS = CommercialBuildingEnergyConsumptionSurveyResponse
 class CBECS < ActiveRecord::Base
-  fuzzy_infer :target     => [:electricity_per_room_night, :natural_gas_per_room_night, :fuel_oil_per_room_night, :district_heat_per_room_night], # list of columns that this model is designed to infer
-              :basis      => [:lodging_rooms, :construction_year, :heating_degree_days, :cooling_degree_days, :floors, :ac_coverage],             # list of columns that are believed to affect energy use (aka MU)
-              :sigma      => "(STDDEV(:column)/5)+(ABS(AVG(:column)-:value)/3)",                                                                  # empirically determined formula (SQL!) that captures the desired sample size once all the weights are compiled, across the full range of possible mu values
-              :membership => :energy_use_membership,                                                                                              # name of instance method to be called on kernel
-              :weight     => :weighting                                                                                                           # (optional) a pre-existing row weighting, if any, provided by the dataset authors
+  fuzzy_infer :target     => [:electricity_per_room_night, :natural_gas_per_room_night,
+                              :fuel_oil_per_room_night, :district_heat_per_room_night], # list of columns that this model is designed to infer
+              :basis      => [:lodging_rooms, :construction_year, :heating_degree_days,
+                              :cooling_degree_days, :floors, :ac_coverage],             # list of columns that are believed to affect energy use (aka MU)
+              :sigma      => "(STDDEV_SAMP(:column)/5)+(ABS(AVG(:column)-:value)/3)",   # empirically determined formula (SQL!) that captures the desired sample size once all the weights are compiled, across the full range of possible mu values
+              :membership => :energy_use_membership,                                    # name of instance method to be called on kernel
+              :weight     => :weighting                                                 # (optional) a pre-existing row weighting, if any, provided by the dataset authors
   
   # empirically determined formula that minimizes variance between real and predicted energy use
   # SQL! - :heating_degree_days_n_w will be replaced with, for example, `tmp_table_9301293.hdd_normalized_weight`
