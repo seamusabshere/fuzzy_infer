@@ -59,13 +59,23 @@ class CBECS < ActiveRecord::Base
   # empirically determined formula that minimizes variance between real and predicted energy use
   # SQL! - :heating_degree_days_n_w will be replaced with, for example, `tmp_table_9301293.hdd_normalized_weight`
   def energy_use_membership(basis)
-    case basis.keys.sort
-    when [:heating_degree_days, :lodging_rooms]
-      "POW(:heating_degree_days_n_w,0.8) * POW(:lodging_rooms_n_w,0.8)"
-    when [:heating_degree_days]
-      "POW(:heating_degree_days_n_w,0.8)"
+    keys = basis.keys
+    
+    formula = "(POW(:heating_degree_days_n_w, 0.8) + POW(:cooling_degree_days_n_w, 0.8))"
+    
+    formula += if keys.include? :lodging_rooms and keys.include? :floors
+      " * (POW(:lodging_rooms_n_w, 0.8) + POW(:floors_n_w, 0.8))"
+    elsif keys.include? :lodging_rooms
+      " * POW(:lodging_rooms_n_w, 0.8)"
+    elsif keys.include? :floors
+      " * POW(:floors_n_w, 0.8)"
     else
-      raise "#{basis.inspect} not covered by membership function"
+      ""
     end
+    
+    formula += " * POW(:percent_cooled_n_w, 0.8)" if keys.include? :percent_cooled
+    formula += " * POW(:construction_year_n_w, 0.8)" if keys.include? :construction_year
+    
+    formula
   end
 end

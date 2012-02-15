@@ -24,12 +24,12 @@ describe FuzzyInfer do
   
   describe FuzzyInfer::FuzzyInferenceMachine do
     before do
-      @kernel = CBECS.new(:heating_degree_days => 2778, :lodging_rooms => 20, :principal_activity => 'Partying')
+      @kernel = CBECS.new(:heating_degree_days => 2778, :cooling_degree_days => 400, :lodging_rooms => 20, :principal_activity => 'Partying')
       @e = @kernel.fuzzy_inference_machine(:electricity_per_room_night)
     end
     describe '#basis' do
       it "is the union of the kernel's attributes with the basis" do
-        @e.basis.must_equal :heating_degree_days => 2778, :lodging_rooms => 20
+        @e.basis.must_equal :lodging_rooms => 20, :heating_degree_days => 2778.0, :cooling_degree_days => 400.0
       end
     end
     describe "the temp table" do
@@ -40,17 +40,18 @@ describe FuzzyInfer do
     describe '#sigma' do
       it "is calculated from the original table, but only those rows that are also in the temp table" do
         @e.sigma[:heating_degree_days].must_be_close_to 411.2, 0.1
+        @e.sigma[:cooling_degree_days].must_be_close_to 267.3, 0.1
         @e.sigma[:lodging_rooms].must_be_close_to 55.0, 0.1
       end
     end
     describe '#membership' do
       it 'depends on the kernel' do
-        @e.membership.must_equal 'POW(`heating_degree_days_n_w`,0.8) * POW(`lodging_rooms_n_w`,0.8)'
+        @e.membership.must_equal '(POW(`heating_degree_days_n_w`, 0.8) + POW(`cooling_degree_days_n_w`, 0.8)) * POW(`lodging_rooms_n_w`, 0.8)'
       end
     end
     describe '#infer' do
       it 'guesses!' do
-        @e.infer.must_be_close_to 18.35, 0.01
+        @e.infer.must_be_close_to 17.75, 0.01
       end
     end
   end
