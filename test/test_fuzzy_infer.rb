@@ -34,7 +34,7 @@ describe FuzzyInfer do
     end
     describe "the temp table" do
       it "excludes rows from the original table where basis or target is nil, but includes rows where they are 0" do
-        ActiveRecord::Base.connection.select_value(@e.arel_table.project('COUNT(*)').to_sql).must_equal 192
+        ActiveRecord::Base.connection.select_value(@e.arel_table.project('COUNT(*)').to_sql).to_f.must_equal 192
       end
     end
     describe '#sigma' do
@@ -46,7 +46,7 @@ describe FuzzyInfer do
     end
     describe '#membership' do
       it 'depends on the kernel' do
-        @e.membership.must_equal '(POW(`heating_degree_days_n_w`, 0.8) + POW(`cooling_degree_days_n_w`, 0.8)) * POW(`lodging_rooms_n_w`, 0.8)'
+        @e.membership.must_match %r{\(POW\(.heating_degree_days_n_w.,\ 0\.8\)\ \+\ POW\(.cooling_degree_days_n_w.,\ 0\.8\)\)\ \*\ POW\(.lodging_rooms_n_w.,\ 0\.8\)}
       end
     end
     describe '#infer' do

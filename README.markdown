@@ -34,6 +34,11 @@ wishlist:
 * randomize names of all added columns
 * use arel to generate sql(?)
 
+## Database compatibility
+
+* mysql
+* postgresql
+
 ## Copyright
 
 Copyright 2012 Brighter Planet, Inc.
