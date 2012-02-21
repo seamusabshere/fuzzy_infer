@@ -44,6 +44,11 @@ module FuzzyInfer
       @membership = sql
     end
     
+    # In case you want to `cache_method :infer` with https://github.com/seamusabshere/cache_method
+    def method_cache_hash
+      [kernel.class.name, basis, target, config].hash
+    end
+    
     private
     
     def calculate_table!
