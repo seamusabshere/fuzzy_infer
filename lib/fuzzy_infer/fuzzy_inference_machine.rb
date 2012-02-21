@@ -30,7 +30,7 @@ module FuzzyInfer
     
     def sigma
       @sigma ||= basis.inject({}) do |memo, (k, v)|
-        memo[k] = select_value(%{SELECT #{sigma_sql(k, v)} FROM #{active_record_class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}).to_f
+        memo[k] = select_value(%{SELECT #{sigma_sql(k, v)} FROM #{kernel.class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}).to_f
         memo
       end
     end
@@ -48,7 +48,7 @@ module FuzzyInfer
     
     def calculate_table!
       return if table_exists?(table_name)
-      execute %{CREATE TEMPORARY TABLE #{table_name} AS SELECT * FROM #{active_record_class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
+      execute %{CREATE TEMPORARY TABLE #{table_name} AS SELECT * FROM #{kernel.class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
       execute %{ALTER TABLE #{table_name} #{weight_create_columns_sql}}
       execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_membership FLOAT default null}
       execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_weighted_value FLOAT default null}
@@ -113,10 +113,6 @@ module FuzzyInfer
     
     def connection
       kernel.connection
-    end
-    
-    def active_record_class
-      kernel.class
     end
     
     delegate :execute, :quote_column_name, :select_value, :table_exists?, :to => :connection
