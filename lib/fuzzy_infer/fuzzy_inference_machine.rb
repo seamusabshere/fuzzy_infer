@@ -13,7 +13,9 @@ module FuzzyInfer
     
     def infer
       calculate_table!
-      select_value(%{SELECT SUM(fuzzy_weighted_value)/SUM(fuzzy_membership) FROM #{table_name}}).to_f
+      retval = select_value(%{SELECT SUM(fuzzy_weighted_value)/SUM(fuzzy_membership) FROM #{table_name}}).to_f
+      execute %{DROP TABLE #{table_name}}
+      retval
     end
     
     # TODO technically I could use this to generate the SQL
