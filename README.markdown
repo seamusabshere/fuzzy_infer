@@ -1,5 +1,9 @@
 # FuzzyInfer
 
+## Where it's used
+
+* [Brighter Planet CM1 Impact Estimate web service](http://impact.brighterplanet.com) 
+
 ## setup
 
 1) gem install a bleeding edge earth

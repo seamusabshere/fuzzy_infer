@@ -2,11 +2,12 @@
 require File.expand_path('../lib/fuzzy_infer/version', __FILE__)
 
 Gem::Specification.new do |gem|
-  gem.authors       = ["Seamus Abshere"]
-  gem.email         = ["seamus@abshere.net"]
-  gem.description   = %q{A description}
-  gem.summary       = %q{A summary}
-  gem.homepage      = ""
+  gem.authors       = ["Seamus Abshere", "Ian Hough", "Matt Kling"]
+  gem.email         = ["seamus@abshere.net", 'ijhough@gmail.com', 'mattkling@gmail.com']
+  desc = %q{Use fuzzy set analysis to infer missing values. You provide a sigma function, a membership function, and a kernel.}
+  gem.description   = desc
+  gem.summary       = desc
+  gem.homepage      = "https://github.com/seamusabshere/fuzzy_infer"
 
   gem.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   gem.files         = `git ls-files`.split("\n")
