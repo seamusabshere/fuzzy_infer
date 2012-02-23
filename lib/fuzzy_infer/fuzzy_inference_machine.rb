@@ -45,8 +45,10 @@ module FuzzyInfer
     end
     
     # In case you want to `cache_method :infer` with https://github.com/seamusabshere/cache_method
+    #
+    # Note that if you redefine fuzzy_infer options for the same target, you will have to clear the cache.
     def method_cache_hash
-      [kernel.class.name, basis, target, config].hash
+      [kernel.class.name, basis, target].hash
     end
     
     private
