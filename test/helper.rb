@@ -1,4 +1,7 @@
+require 'rubygems'
 require 'bundler/setup'
+
+require 'benchmark'
 
 require 'active_record'
 case ENV['DB_ADAPTER']

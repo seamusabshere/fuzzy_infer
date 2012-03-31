@@ -3,20 +3,29 @@ module FuzzyInfer
     MYSQL_ADAPTER_NAME = /mysql/i
 
     attr_reader :kernel
-    attr_reader :target
+    attr_reader :targets
     attr_reader :config
 
-    def initialize(kernel, target, config)
+    def initialize(kernel, targets, config)
       @kernel = kernel
-      @target = target
+      @targets = targets
       @config = config
     end
 
     def infer
       calculate_table!
-      retval = select_value(%{SELECT SUM(fuzzy_weighted_value)/SUM(fuzzy_membership) FROM #{table_name}}).to_f
+      pieces = targets.map do |target|
+        "SUM(#{my(target, :v)})/SUM(#{my(:fuzzy_membership)})"
+      end
+      values = select_rows(%{SELECT #{pieces.join(', ')} FROM #{table_name}}).first.map do |value|
+        value.nil? ? nil : value.to_f
+      end
       execute %{DROP TABLE #{table_name}}
-      retval
+      if targets.length == 1
+        return values.first
+      else
+        return *values
+      end
     end
 
     # TODO technically I could use this to generate the SQL
@@ -31,7 +40,7 @@ module FuzzyInfer
 
     def sigma
       @sigma ||= basis.inject({}) do |memo, (k, v)|
-        memo[k] = select_value(%{SELECT #{sigma_sql(k, v)} FROM #{kernel.class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}).to_f
+        memo[k] = select_value(%{SELECT #{sigma_sql(k, v)} FROM #{kernel.class.quoted_table_name} WHERE #{all_targets_not_null_sql} AND #{basis_not_null_sql}}).to_f
         memo
       end
     end
@@ -40,7 +49,7 @@ module FuzzyInfer
       return @membership if @membership
       sql = kernel.send(config.membership, basis).dup
       basis.keys.each do |k|
-        sql.gsub! ":#{k}_n_w", quote_column_name("#{k}_n_w")
+        sql.gsub! ":#{k}_n_w", my(k, :n_w)
       end
       @membership = sql
     end
@@ -49,22 +58,17 @@ module FuzzyInfer
 
     def calculate_table!
       return if table_exists?(table_name)
-      execute %{CREATE TEMPORARY TABLE #{table_name} #{'ENGINE=MEMORY' if mysql?} AS SELECT * FROM #{kernel.class.quoted_table_name} WHERE #{target_not_null_sql} AND #{basis_not_null_sql}}
-      execute %{ALTER TABLE #{table_name} #{weight_create_columns_sql}}
-      execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_membership FLOAT default null}
-      execute %{ALTER TABLE #{table_name} ADD COLUMN fuzzy_weighted_value FLOAT default null}
-      execute %{ANALYZE #{'TABLE' if mysql?} #{table_name}}
+      mysql = connection.adapter_name =~ MYSQL_ADAPTER_NAME
+      execute %{CREATE TEMPORARY TABLE #{table_name} #{'ENGINE=MEMORY' if mysql} AS SELECT * FROM #{kernel.class.quoted_table_name} WHERE #{all_targets_not_null_sql} AND #{basis_not_null_sql}}
+      execute %{ALTER TABLE #{table_name} #{additional_column_definitions.join(',')}}
+      execute %{ANALYZE #{'TABLE' if mysql} #{table_name}}
       execute %{UPDATE #{table_name} SET #{weight_calculate_sql}}
       weight_normalize_frags.each do |sql|
         execute sql
       end
-      execute %{UPDATE #{table_name} SET fuzzy_membership = #{membership_sql}}
-      execute %{UPDATE #{table_name} SET fuzzy_weighted_value = fuzzy_membership * #{quote_column_name(target)}}
+      execute %{UPDATE #{table_name} SET #{my(:fuzzy_membership)} = #{membership_sql}}
+      execute %{UPDATE #{table_name} SET #{target_setters.join(', ')}}
       nil
-    end
-
-    def mysql?
-      connection.adapter_name =~ MYSQL_ADAPTER_NAME
     end
 
     def membership_sql
@@ -77,14 +81,20 @@ module FuzzyInfer
 
     def weight_normalize_frags
       basis.keys.map do |k|
-        max = select_value("SELECT MAX(#{quote_column_name("#{k}_w")}) FROM #{table_name}").to_f
-        "UPDATE #{table_name} SET #{quote_column_name("#{k}_n_w")} = #{quote_column_name("#{k}_w")} / #{max}"
+        max = select_value("SELECT MAX(#{my(k, :w)}) FROM #{table_name}").to_f
+        "UPDATE #{table_name} SET #{my(k, :n_w)} = #{my(k, :w)} / #{max}"
+      end
+    end
+
+    def target_setters
+      targets.map do |target|
+        %{#{my(target, :v)} = #{my(:fuzzy_membership)} * #{quote_column_name(target)}}
       end
     end
 
     def weight_calculate_sql
       basis.keys.map do |k|
-        "#{quote_column_name("#{k}_w")} = 1.0 / (#{sigma[k]}*SQRT(2*PI())) * EXP(-(POW(#{quote_column_name(k)} - #{basis[k]},2))/(2*POW(#{sigma[k]},2)))"
+        "#{my(k, :w)} = 1.0 / (#{sigma[k]}*SQRT(2*PI())) * EXP(-(POW(#{quote_column_name(k)} - #{basis[k]},2))/(2*POW(#{sigma[k]},2)))"
       end.join(', ')
     end
 
@@ -95,16 +105,25 @@ module FuzzyInfer
       sql
     end
 
-    def table_name
-      @table_name ||= "fuzzy_infer_#{Time.now.strftime('%Y_%m_%d_%H_%M_%S')}_#{Kernel.rand(1e11)}"
+    def randomness
+      @randomness ||= [Time.now.strftime('%H%M%S'), Kernel.rand(1e5)].join('_')
     end
 
-    def weight_create_columns_sql
-      basis.keys.inject([]) do |memo, k|
-        memo << "ADD COLUMN #{quote_column_name("#{k}_w")} FLOAT default null"
-        memo << "ADD COLUMN #{quote_column_name("#{k}_n_w")} FLOAT default null"
-        memo
-      end.flatten.join ', '
+    def table_name
+      @table_name ||= "fuzzy_infer_#{randomness}"
+    end
+
+    def additional_column_definitions
+      cols = []
+      cols << "ADD COLUMN #{my(:fuzzy_membership)} FLOAT DEFAULT NULL"
+      basis.keys.each do |k|
+        cols << "ADD COLUMN #{my(k, :w)} FLOAT DEFAULT NULL"
+        cols << "ADD COLUMN #{my(k, :n_w)} FLOAT DEFAULT NULL"
+      end
+      targets.each do |target|
+        cols << "ADD COLUMN #{my(target, :v)} FLOAT DEFAULT NULL"
+      end
+      cols
     end
 
     def basis_not_null_sql
@@ -113,15 +132,21 @@ module FuzzyInfer
       end.join ' AND '
     end
 
-    def target_not_null_sql
-      "#{quote_column_name(target)} IS NOT NULL"
+    def all_targets_not_null_sql
+      [config.target].flatten.map do |target|
+        "#{quote_column_name(target)} IS NOT NULL"
+      end.join ' AND '
     end
 
     def connection
       kernel.connection
     end
 
-    delegate :execute, :quote_column_name, :select_value, :table_exists?, :to => :connection
+    def my(column_name, suffix = nil)
+      quote_column_name([column_name, suffix, randomness].compact.join('_'))
+    end
+
+    delegate :execute, :quote_column_name, :select_value, :select_rows, :table_exists?, :to => :connection
   end
 end
 

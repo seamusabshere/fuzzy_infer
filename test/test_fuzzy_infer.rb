@@ -46,12 +46,34 @@ describe FuzzyInfer do
     end
     describe '#membership' do
       it 'depends on the kernel' do
-        @e.membership.must_match %r{\(POW\(.heating_degree_days_n_w.,\ 0\.8\)\ \+\ POW\(.cooling_degree_days_n_w.,\ 0\.8\)\)\ \*\ POW\(.lodging_rooms_n_w.,\ 0\.8\)}
+        @e.membership.must_match %r{\(POW\(.heating_degree_days_n_w_\d+_\d+.,\ 0\.8\)\ \+\ POW\(.cooling_degree_days_n_w_\d+_\d+.,\ 0\.8\)\)\ \*\ POW\(.lodging_rooms_n_w_\d+_\d+.,\ 0\.8\)}
       end
     end
     describe '#infer' do
       it 'guesses!' do
         @e.infer.must_be_close_to 17.75, 0.01
+      end
+    end
+    describe 'optimizations' do
+      it "can run multiple numbers at once" do
+        # dry run
+        @kernel.fuzzy_infer :electricity_per_room_night
+        @kernel.fuzzy_infer :natural_gas_per_room_night
+        @kernel.fuzzy_infer :fuel_oil_per_room_night
+        # end
+        e1 = n1 = f1 = e2 = n2 = f2 = nil
+        uncached_time = Benchmark.realtime do
+          e1 = @kernel.fuzzy_infer :electricity_per_room_night
+          n1 = @kernel.fuzzy_infer :natural_gas_per_room_night
+          f1 = @kernel.fuzzy_infer :fuel_oil_per_room_night
+        end
+        cached_time = Benchmark.realtime do
+          e2, n2, f2 = @kernel.fuzzy_infer :electricity_per_room_night, :natural_gas_per_room_night, :fuel_oil_per_room_night
+        end
+        (uncached_time / cached_time).must_be :>, 2
+        e2.must_equal e1
+        n2.must_equal n1
+        f2.must_equal f1
       end
     end
   end
