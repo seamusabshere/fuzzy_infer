@@ -1,0 +1,11 @@
+== 0.0.2 / 2012-04-02
+
+* Enhancements
+
+  * Allow inferring multiple values at once, e.g. CBECS.fuzzy_infer(:foo, :bar, :baz) for speed
+  * Combine SQL queries where possible for speed
+  * Truly unique column names so we don't step on any toes
+
+== 0.0.1 / 2012-02-21
+
+* Initial release
