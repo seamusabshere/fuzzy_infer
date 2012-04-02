@@ -39,9 +39,9 @@ describe FuzzyInfer do
     end
     describe '#sigma' do
       it "is calculated from the original table, but only those rows that are also in the temp table" do
-        @e.sigma[:heating_degree_days].must_be_close_to 411.9, 0.1
-        @e.sigma[:cooling_degree_days].must_be_close_to 267.6, 0.1
-        @e.sigma[:lodging_rooms].must_be_close_to 55.0, 0.1
+        @e.send(:sigma)[:heating_degree_days].must_be_close_to 411.9, 0.1
+        @e.send(:sigma)[:cooling_degree_days].must_be_close_to 267.6, 0.1
+        @e.send(:sigma)[:lodging_rooms].must_be_close_to 55.0, 0.1
       end
     end
     describe '#membership' do
