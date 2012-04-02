@@ -54,31 +54,23 @@ module FuzzyInfer
     def calculate_table!
       return if connection.table_exists?(table_name)
       mysql = connection.adapter_name =~ MYSQL_ADAPTER_NAME
-      execute %{CREATE TEMPORARY TABLE #{table_name} #{'ENGINE=MEMORY' if mysql} AS SELECT * FROM #{kernel.class.quoted_table_name} WHERE #{all_targets_not_null_sql} AND #{basis_not_null_sql}}
-      execute %{ALTER TABLE #{table_name} #{additional_column_definitions.join(',')}}
+      execute %{CREATE TEMPORARY TABLE #{table_name} #{'ENGINE=MEMORY' if mysql} AS SELECT * FROM #{kernel.class.quoted_table_name} WHERE #{all_targets_not_null_condition} AND #{basis_not_null_condition}}
+      execute %{ALTER TABLE #{table_name} #{additional_column_definitions.join(', ')}}
       execute %{ANALYZE #{'TABLE' if mysql} #{table_name}}
-      execute %{UPDATE #{table_name} SET #{weight_calculate_sql}}
-      weight_normalize_frags.each do |sql|
-        execute sql
-      end
-      execute %{UPDATE #{table_name} SET #{qc(:fuzzy_membership)} = #{membership_sql}}
+      execute %{UPDATE #{table_name} SET #{weight_calculators.join(', ')}}
+      execute %{UPDATE #{table_name} SET #{weight_normalizers.join(', ')}}
+      execute %{UPDATE #{table_name} SET #{membership_setter}}
       execute %{UPDATE #{table_name} SET #{target_setters.join(', ')}}
       nil
     end
 
-    def membership_sql
-      if config.weight
+    def membership_setter
+      right = if config.weight
         "(#{membership}) * #{quote_column_name(config.weight.to_s)}"
       else
         membership
       end
-    end
-
-    def weight_normalize_frags
-      basis.keys.map do |k|
-        max = connection.select_value("SELECT MAX(#{qc(k, :w)}) FROM #{table_name}").to_f
-        "UPDATE #{table_name} SET #{qc(k, :n_w)} = #{qc(k, :w)} / #{max}"
-      end
+      "#{qc(:fuzzy_membership)} = #{right}"
     end
 
     def target_setters
@@ -87,10 +79,20 @@ module FuzzyInfer
       end
     end
 
-    def weight_calculate_sql
+    def weight_calculators
       basis.keys.map do |k|
         "#{qc(k, :w)} = 1.0 / (#{sigma[k]}*SQRT(2*PI())) * EXP(-(POW(#{quote_column_name(k)} - #{basis[k]},2))/(2*POW(#{sigma[k]},2)))"
-      end.join(', ')
+      end
+    end
+
+    def weight_normalizers
+      max_exprs = basis.keys.map do |k|
+        "MAX(#{qc(k, :w)}) AS #{qc(k, :w_max)}"
+      end
+      maxes = connection.select_one("SELECT #{max_exprs.join(', ')} FROM #{table_name}")
+      basis.keys.map do |k|
+        "#{qc(k, :n_w)} = #{qc(k, :w)} / #{maxes[c(k, :w_max)]}"
+      end
     end
 
     def sigma
@@ -101,7 +103,7 @@ module FuzzyInfer
           sql.gsub! ':value', kernel_value.to_f.to_s
           sql
         end
-        row = connection.select_one(%{SELECT #{exprs.join(', ')} FROM #{kernel.class.quoted_table_name} WHERE #{all_targets_not_null_sql} AND #{basis_not_null_sql}})
+        row = connection.select_one(%{SELECT #{exprs.join(', ')} FROM #{kernel.class.quoted_table_name} WHERE #{all_targets_not_null_condition} AND #{basis_not_null_condition}})
         basis.inject({}) do |memo, (column_name, _)|
           memo[column_name] = row[c(column_name)].to_f
           memo
@@ -130,13 +132,13 @@ module FuzzyInfer
       cols
     end
 
-    def basis_not_null_sql
+    def basis_not_null_condition
       basis.keys.map do |basis|
         "#{quote_column_name(basis)} IS NOT NULL"
       end.join ' AND '
     end
 
-    def all_targets_not_null_sql
+    def all_targets_not_null_condition
       [config.target].flatten.map do |target|
         "#{quote_column_name(target)} IS NOT NULL"
       end.join ' AND '
