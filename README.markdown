@@ -1,8 +1,12 @@
 # FuzzyInfer
 
-## Where it's used
+## Real-world usage
 
-* [Brighter Planet CM1 Impact Estimate web service](http://impact.brighterplanet.com) 
+<p><a href="http://brighterplanet.com"><img src="https://s3.amazonaws.com/static.brighterplanet.com/assets/logos/flush-left/inline/green/rasterized/brighter_planet-160-transparent.png" alt="Brighter Planet logo"/></a></p>
+
+We use `fuzzy_infer` for [data science at Brighter Planet](http://brighterplanet.com/research) and in production at [Brighter Planet's impact estimate web service](http://impact.brighterplanet.com).
+
+Inspiration came from trying our existing [hotel environmental impact model](https://github.com/brighterplanet/lodging/blob/master/lib/lodging/impact_model.rb) on edge cases during [a 2011 Cleanweb Hackathon](http://cleanwebhack.com/hackathon/).
 
 ## What it does
 
@@ -76,39 +80,9 @@ Brighter Planet's lodging model uses compound fuzzy inference to predict hotel e
 5. This effectively weights hotel size and climate more heavily than the other variables, because the addition allows weights for these variables to range up to 2 whereas the other two variables have max weights of 1.
 6. It also allows a record to be dissimilar to the input case on half of a variable pair without being disqualified, provided it's a close match on the other half.
 
-## Setup
-
-1) gem install a bleeding edge earth
-
-    cd earth
-    git pull
-    gem build earth.gemspec
-    gem install earth-0.11.10.gem --ignore-dependencies --no-rdoc --no-ri
-
-2) create your test database
-
-    mysql -u root -ppassword -e "create database test_fuzzy_infer charset utf8"
-
-3) load cbecs (just the first time - note that it is hardcoded to ONLY run cbecs data_miner)
-
-    RUN_DATA_MINER=true rake
-
-## Further testing
-
-    rake
-
 ## Future plans
 
-**in the future the fuzzy inference machine will make TEMPORARY tables, rather than gum up your db**
-
-for now, it makes permanent tables so that you can examine them
-
-wishlist:
-
-* re-use FIM for multiple targets
-* cache #fuzzy_infer
-* randomize names of all added columns
-* use arel to generate sql(?)
+* compatibility with SQLite
 
 ## Database compatibility
 

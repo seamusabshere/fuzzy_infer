@@ -10,3 +10,8 @@ Rake::TestTask.new(:test) do |test|
 end
 
 task :default => :test
+
+require 'yard'
+YARD::Rake::YardocTask.new do |y|
+  y.options << '--no-private' << '--title' << "fuzzy_infer: Fuzzy set analysis in Ruby"
+end
